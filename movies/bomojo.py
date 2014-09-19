@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import sys
 import re
 import urllib2
@@ -36,10 +37,16 @@ class BOMojoScraper(scraper.Scraper):
         release_date = self.to_date(
             self.get_movie_value(soup,'Release Date'))
         domestic_total_gross = self.money_to_int(
-            self.get_movie_value(soup,'Domestic Total Gross'))
+            self.get_movie_value(soup,'Domestic Total'))
         runtime = self.runtime_to_minutes(self.get_movie_value(soup,'Runtime'))
         director = self.get_movie_value(soup,'Director')
         rating = self.get_movie_value(soup,'MPAA Rating')
+        writers = self.get_movie_value(soup, 'Writers')
+        actors = self.get_actors_as_list(soup)
+        distributor = self.get_movie_value(soup, 'Distributor:')
+        genre = self.get_movie_value(soup, 'Genre:')
+        budget = self.budget_to_int(self.get_movie_value(soup, 'Production Budget:'))
+        opening_wknd = self.money_to_int(self.get_opening_weekend(soup))
 
         movie_dict = {
             'movie title':self.get_movie_title(soup),
@@ -47,10 +54,41 @@ class BOMojoScraper(scraper.Scraper):
             'domestic_total_gross':domestic_total_gross,
             'runtime':runtime,
             'director':director,
-            'rating':rating
+            'rating':rating,
+            'writers':writers,
+            'actors':actors,
+            'distributor':distributor,
+            'genre':genre,
+            'budget':budget,
+            'opening_wknd':opening_wknd
         }
 
         return movie_dict
+
+    def get_actors_as_list(self,soup):
+        result = []
+        actor_links = soup.find_all('a', href=re.compile("Actor"))
+        for link in actor_links:
+            if not ":" in link.text:
+                name = link.text.replace("*","")
+                re.sub(r'\([^)]*\)', '', name)
+                print name
+                result.append(name)
+
+        return ";".join(result)
+
+    def get_opening_weekend(self,soup):
+        obj = soup.find(text=re.compile("Opening"))
+        if not obj: 
+            return ""
+
+        if obj.find_parent('td'):
+            sibling_cell = obj.find_parent('td').findNextSibling()
+            if sibling_cell:
+                #print sibling_cell.text
+                return sibling_cell.text
+        else:
+            return ""
             
 
     def get_movie_value(self,soup,value_name):
@@ -60,7 +98,7 @@ class BOMojoScraper(scraper.Scraper):
         '''
         obj = soup.find(text=re.compile(value_name))
         if not obj: 
-            return None
+            return ""
     
         # this works for most of the values
         next_sibling = obj.findNextSibling()
@@ -69,25 +107,38 @@ class BOMojoScraper(scraper.Scraper):
 
         # this next part works for the director
         elif obj.find_parent('td'):
-            sibling_cell = obj.find_parent('td').findNextSibling()
+            sibling_cell = obj.find_parent('tr').findNextSibling()
             if sibling_cell:
-                return sibling_cell.text
+                return sibling_cell.text.replace(",","")
         
         else:
-            return -1
+            return ""
 
 
     def get_movie_title(self,soup):
         title_tag = soup.find('title')
         movie_title = title_tag.text.split('(')[0].strip()
-        return movie_title
+        return movie_title.replace(",","")
     
     def to_date(self,datestring):
         return dateutil.parser.parse(datestring)
 
     def money_to_int(self,moneystring):
-        return int(moneystring.replace('$','').replace(',',''))
+        try:
+            moneystring = moneystring.strip()
+            return int(moneystring.replace('$','').replace(',',''))
+        except:
+            return 0
+
+    def budget_to_int(self,budgetstring):
+        try:
+            return int(float(budgetstring.replace('$','').replace(' million','')) * 1000000)
+        except:
+            return 0
 
     def runtime_to_minutes(self,runtimestring):
         rt = runtimestring.split(' ')
-        return int(rt[0])*60 + int(rt[2])
+        try:
+            return int(rt[0])*60 + int(rt[2])
+        except:
+            return 0

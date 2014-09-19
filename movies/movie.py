@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import bomojo
 import pickle
 from bs4 import BeautifulSoup
@@ -19,6 +20,7 @@ class BOMojoMovie():
         self.distributor = ""
         self.genre = ""
         self.budget = ""
+        self.opening_wknd = 0
 
     def __init__(self, movie_data):
 	self.movie_title = movie_data['movie title']
@@ -32,15 +34,15 @@ class BOMojoMovie():
         self.distributor = movie_data['distributor']
         self.genre = movie_data['genre']
         self.budget = movie_data['budget']
+        self.opening_wknd = movie_data['opening_wknd']
 
     def __str__(self):
-        s = ",".join([self.movie_title, str(self.release_date), str(self.domestic_gross), str(self.runtime), str(self.director).encode('ascii', 'ignore'), self.rating, self.genre, str(self.budget)])
-        s = s + ',' +str(self.actors).encode('ascii', 'ignore') + "\n"
+        s = ",".join([self.movie_title, str(self.release_date), str(self.domestic_gross), str(self.runtime), self.director, self.rating, self.genre, str(self.budget), str(self.opening_wknd)])
+        s = s + ',' + self.actors + "\n"
         #s = s + '\n'
+        
+        return s     
 
-        #sloooow
-        return s
-       
 def pickle_dump_all_movies(movie_data):
     output = open('movie_data.pkl', 'wb')
 
@@ -56,25 +58,25 @@ def pickle_load_all_movies(movie_data):
 #easier for stupid humans to reads ;-)
 def string_dump_all_movies(movie_data):
 
-    output = open("movie_data.csv", "wb")
+    with codecs.open("movie_data_priors.csv", 'w+', 'UTF-8') as f:
 
-    output.write('Title,ReleaseDate,DomesticTotalGross,Runtime,Director,Rating,Genre,Budget,Actors\n')
+        f.write('Title,ReleaseDate,DomesticTotalGross,Runtime,Director,Rating,Genre,Budget,OpeningWeekend,Actors\n')
 
-    for movie in movie_data:
-        try:
-            output.write(str(movie))
-        except:
-            print 'error writing ', movie.movie_title
-            pass
+        for movie in movie_data:
+            try:
+                f.write(str(movie).encode('UTF-8', 'ignore'))
+            except:
+                print 'error writing ', movie.movie_title
+                pass
 
     print 'write to movie_data.csv ', len(movie_data)
 
-    output.close()
+    f.close()
 
 
-def get_from_top(bomj, movie_data):
+def get_from_top(bomj, year):
 
-    year = 2013
+    movie_data = []
 
     for i in range(1,8):
 
@@ -94,21 +96,25 @@ def get_from_top(bomj, movie_data):
                         try:
                             movie_data.append(BOMojoMovie(bomj.parse_full_mojo_page(s)))
                         except:
-                            print 'whhhaaaa?'
+                            print 'error adding ' 
+                            pass
             except:
-                #ignores a without href (why would you even want such a thing?)
+                #ignores a without href
                 pass
-    
-        
+
+    return movie_data
 
 if __name__ == "__main__":
     bomj = bomojo.BOMojoScraper()
 
-    movie_data = []
+    all_years = []
 
-    get_from_top(bomj,movie_data)
-
-    string_dump_all_movies(movie_data)
+    for i in range(0,13):
+        movie_data = get_from_top(bomj,2000 + i)
+        for movie in movie_data:
+            all_years.append(movie)
+    #movie_data2013 = get_from_top(bomj,2013)
+    string_dump_all_movies(all_years)
 
     
 
